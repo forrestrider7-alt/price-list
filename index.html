@@ -280,6 +280,36 @@ body {
   letter-spacing: 0.03em;
   padding-bottom: 2px;
 }
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--safe-b) + 24px);
+  transform: translateX(-50%) translateY(16px) scale(0.98);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 30;
+  max-width: min(92vw, 430px);
+  padding: 12px 16px;
+  border-radius: 14px;
+  font-size: 13px;
+  line-height: 1.35;
+  color: var(--graphite);
+  background: linear-gradient(145deg, rgba(251, 248, 243, 0.98), rgba(235, 228, 217, 0.9));
+  box-shadow:
+    -6px -6px 12px rgba(255, 255, 255, 0.9),
+    8px 8px 15px rgba(122, 129, 133, 0.3),
+    inset -2px -2px 4px rgba(255, 255, 255, 0.65),
+    inset 2px 2px 4px rgba(136, 143, 148, 0.16);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: opacity 280ms ease, transform 280ms ease;
+}
+
+.toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0) scale(1);
+}
 </style>
 </head>
 <body>
@@ -299,6 +329,7 @@ body {
     <div class="bottom" id="dots"></div>
     <p class="hint" id="hint"></p>
   </main>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script>
 const DATA = {
@@ -308,7 +339,8 @@ const DATA = {
       featured: "Рекомендуемый",
       bookNow: "Забронировать",
       swipeHint: "Свайпайте, чтобы посмотреть пакеты",
-      bookingTemplate: "Hello! I want to book the {name} session."
+      bookingTemplate: "Hello! I want to book the {name} session.",
+      copiedToast: "Текст скопирован. Вставьте его в Директ."
     },
     pkgs: [
       {
@@ -346,7 +378,8 @@ const DATA = {
       featured: "Featured",
       bookNow: "Book Now",
       swipeHint: "Swipe to explore packages",
-      bookingTemplate: "Hello! I want to book the {name} session."
+      bookingTemplate: "Hello! I want to book the {name} session.",
+      copiedToast: "Text copied. Paste it into Direct."
     },
     pkgs: [
       {
@@ -384,7 +417,8 @@ const DATA = {
       featured: "Consigliato",
       bookNow: "Prenota Ora",
       swipeHint: "Scorri per vedere i pacchetti",
-      bookingTemplate: "Hello! I want to book the {name} session."
+      bookingTemplate: "Hello! I want to book the {name} session.",
+      copiedToast: "Testo copiato. Incollalo in Direct."
     },
     pkgs: [
       {
@@ -422,6 +456,7 @@ const LANGS = ["en", "ru", "it"];
 const LANG_LABELS = { en: "EN", ru: "RU", it: "IT" };
 let currentLang = detectLanguage();
 let currentPackage = 0;
+let toastTimer = null;
 
 function detectLanguage() {
   const nav = (navigator.language || "").toLowerCase();
@@ -477,11 +512,14 @@ function buildCards() {
   }).join("");
 
   track.querySelectorAll(".book-btn").forEach((btn) => {
-    btn.addEventListener("click", () => {
+    btn.addEventListener("click", async () => {
       const pkg = langData.pkgs[Number(btn.dataset.idx)];
       const text = langData.ui.bookingTemplate.replace("{name}", pkg.name);
-      const url = `https://ig.me/m/s3ven_stars?text=${encodeURIComponent(text)}`;
-      window.open(url, "_blank");
+      await copyBookingText(text);
+      showToast(langData.ui.copiedToast);
+      setTimeout(() => {
+        window.location.href = "https://www.instagram.com/s3ven_stars/";
+      }, 1500);
     });
   });
 }
@@ -521,6 +559,37 @@ function render() {
 
 function escapeHtml(value) {
   return String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+async function copyBookingText(text) {
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(text);
+      return;
+    }
+  } catch (_) {
+    // Fallback below.
+  }
+
+  const helper = document.createElement("textarea");
+  helper.value = text;
+  helper.setAttribute("readonly", "");
+  helper.style.position = "fixed";
+  helper.style.left = "-9999px";
+  document.body.appendChild(helper);
+  helper.select();
+  document.execCommand("copy");
+  document.body.removeChild(helper);
+}
+
+function showToast(message) {
+  const toast = document.getElementById("toast");
+  toast.textContent = message;
+  toast.classList.add("show");
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    toast.classList.remove("show");
+  }, 1400);
 }
 
 // Touch swipe logic for package carousel.
