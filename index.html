@@ -359,7 +359,7 @@ const DATA = {
       bookNow: "Забронировать",
       swipeHint: "Свайпайте, чтобы посмотреть пакеты",
       bookingTemplate: "Hello! I want to book the {name} session.",
-      copiedToast: "Текст скопирован. Вставьте его в Директ."
+      redirectToast: "Автоматический переход в WhatsApp"
     },
     pkgs: [
       {
@@ -398,7 +398,7 @@ const DATA = {
       bookNow: "Book Now",
       swipeHint: "Swipe to explore packages",
       bookingTemplate: "Hello! I want to book the {name} session.",
-      copiedToast: "Text copied. Paste it into Direct."
+      redirectToast: "Automatic redirect to WhatsApp"
     },
     pkgs: [
       {
@@ -437,7 +437,7 @@ const DATA = {
       bookNow: "Prenota Ora",
       swipeHint: "Scorri per vedere i pacchetti",
       bookingTemplate: "Hello! I want to book the {name} session.",
-      copiedToast: "Testo copiato. Incollalo in Direct."
+      redirectToast: "Reindirizzamento automatico su WhatsApp"
     },
     pkgs: [
       {
@@ -476,6 +476,7 @@ const LANG_LABELS = { en: "EN", ru: "RU", it: "IT" };
 let currentLang = detectLanguage();
 let currentPackage = 0;
 let toastTimer = null;
+const WHATSAPP_NUMBER = "393446733500";
 
 function detectLanguage() {
   const nav = (navigator.language || "").toLowerCase();
@@ -531,11 +532,12 @@ function buildCards() {
   }).join("");
 
   track.querySelectorAll(".book-btn").forEach((btn) => {
-    btn.addEventListener("click", async () => {
+    btn.addEventListener("click", () => {
       const pkg = langData.pkgs[Number(btn.dataset.idx)];
       const text = langData.ui.bookingTemplate.replace("{name}", pkg.name);
-      await copyBookingText(text);
-      showToast(langData.ui.copiedToast);
+      const message = `${text} — ${langData.ui.redirectToast}`;
+      showToast(langData.ui.redirectToast);
+      window.location.href = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
     });
   });
 }
@@ -575,27 +577,6 @@ function render() {
 
 function escapeHtml(value) {
   return String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-async function copyBookingText(text) {
-  try {
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      await navigator.clipboard.writeText(text);
-      return;
-    }
-  } catch (_) {
-    // Fallback below.
-  }
-
-  const helper = document.createElement("textarea");
-  helper.value = text;
-  helper.setAttribute("readonly", "");
-  helper.style.position = "fixed";
-  helper.style.left = "-9999px";
-  document.body.appendChild(helper);
-  helper.select();
-  document.execCommand("copy");
-  document.body.removeChild(helper);
 }
 
 function showToast(message) {
