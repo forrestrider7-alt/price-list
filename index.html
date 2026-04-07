@@ -281,34 +281,51 @@ body {
   padding-bottom: 2px;
 }
 
-.toast {
+.toast-layer {
   position: fixed;
-  left: 50%;
-  bottom: calc(var(--safe-b) + 24px);
-  transform: translateX(-50%) translateY(16px) scale(0.98);
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(238, 234, 226, 0.22);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   opacity: 0;
   pointer-events: none;
   z-index: 30;
-  max-width: min(92vw, 430px);
-  padding: 12px 16px;
-  border-radius: 14px;
-  font-size: 13px;
-  line-height: 1.35;
-  color: var(--graphite);
-  background: linear-gradient(145deg, rgba(251, 248, 243, 0.98), rgba(235, 228, 217, 0.9));
-  box-shadow:
-    -6px -6px 12px rgba(255, 255, 255, 0.9),
-    8px 8px 15px rgba(122, 129, 133, 0.3),
-    inset -2px -2px 4px rgba(255, 255, 255, 0.65),
-    inset 2px 2px 4px rgba(136, 143, 148, 0.16);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  transition: opacity 280ms ease, transform 280ms ease;
+  transition: opacity 260ms ease;
 }
 
-.toast.show {
+.toast-layer.show {
   opacity: 1;
-  transform: translateX(-50%) translateY(0) scale(1);
+  pointer-events: auto;
+}
+
+.toast {
+  width: min(90vw, 420px);
+  min-height: 116px;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  padding: 20px 22px;
+  border-radius: 24px;
+  font-size: 17px;
+  line-height: 1.35;
+  font-weight: 550;
+  letter-spacing: 0.01em;
+  color: var(--graphite);
+  background: linear-gradient(145deg, rgba(251, 248, 243, 0.98), rgba(235, 228, 217, 0.92));
+  box-shadow:
+    -10px -10px 18px rgba(255, 255, 255, 0.86),
+    12px 12px 22px rgba(122, 129, 133, 0.34),
+    inset -2px -2px 4px rgba(255, 255, 255, 0.62),
+    inset 2px 2px 5px rgba(136, 143, 148, 0.16);
+  transform: translateY(8px) scale(0.98);
+  transition: transform 280ms ease;
+}
+
+.toast-layer.show .toast {
+  transform: translateY(0) scale(1);
 }
 </style>
 </head>
@@ -329,7 +346,9 @@ body {
     <div class="bottom" id="dots"></div>
     <p class="hint" id="hint"></p>
   </main>
-  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <div class="toast-layer" id="toastLayer" aria-hidden="true">
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  </div>
 
 <script>
 const DATA = {
@@ -517,9 +536,6 @@ function buildCards() {
       const text = langData.ui.bookingTemplate.replace("{name}", pkg.name);
       await copyBookingText(text);
       showToast(langData.ui.copiedToast);
-      setTimeout(() => {
-        window.location.href = "https://www.instagram.com/direct/t/s3ven_stars/";
-      }, 1500);
     });
   });
 }
@@ -584,11 +600,12 @@ async function copyBookingText(text) {
 
 function showToast(message) {
   const toast = document.getElementById("toast");
+  const layer = document.getElementById("toastLayer");
   toast.textContent = message;
-  toast.classList.add("show");
+  layer.classList.add("show");
   if (toastTimer) clearTimeout(toastTimer);
   toastTimer = setTimeout(() => {
-    toast.classList.remove("show");
+    layer.classList.remove("show");
   }, 1400);
 }
 
