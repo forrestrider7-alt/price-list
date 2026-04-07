@@ -303,15 +303,17 @@ body {
 
 .toast {
   width: min(90vw, 420px);
-  min-height: 116px;
-  display: grid;
-  place-items: center;
-  text-align: center;
+  min-height: 210px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 12px;
+  text-align: left;
   padding: 20px 22px;
   border-radius: 24px;
-  font-size: 17px;
-  line-height: 1.35;
-  font-weight: 550;
+  font-size: 15px;
+  line-height: 1.4;
+  font-weight: 500;
   letter-spacing: 0.01em;
   color: var(--graphite);
   background: linear-gradient(145deg, rgba(251, 248, 243, 0.98), rgba(235, 228, 217, 0.92));
@@ -326,6 +328,51 @@ body {
 
 .toast-layer.show .toast {
   transform: translateY(0) scale(1);
+}
+
+.modal-title {
+  font-size: 16px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.modal-subtitle {
+  color: var(--graphite-soft);
+  font-size: 13px;
+}
+
+.name-input {
+  width: 100%;
+  border: 0;
+  border-radius: 14px;
+  background: rgba(247, 243, 236, 0.95);
+  color: var(--graphite);
+  font: inherit;
+  font-size: 15px;
+  padding: 13px 14px;
+  outline: none;
+  box-shadow: inset -2px -2px 4px rgba(255,255,255,0.9), inset 2px 2px 4px rgba(128,136,141,0.23);
+}
+
+.name-input::placeholder {
+  color: #7c8387;
+}
+
+.modal-confirm {
+  border: 0;
+  border-radius: 14px;
+  padding: 13px 14px;
+  background: linear-gradient(145deg, #2b3032, #15191b);
+  color: #f8f5f1;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  box-shadow: -4px -4px 8px rgba(255,255,255,0.25), 7px 7px 12px rgba(107,115,120,0.34);
+}
+
+.modal-confirm:active {
+  transform: scale(0.99);
 }
 </style>
 </head>
@@ -347,7 +394,12 @@ body {
     <p class="hint" id="hint"></p>
   </main>
   <div class="toast-layer" id="toastLayer" aria-hidden="true">
-    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <div class="toast" id="toast">
+      <p class="modal-title" id="modalTitle"></p>
+      <p class="modal-subtitle" id="modalSubtitle"></p>
+      <input class="name-input" id="nameInput" type="text" autocomplete="name" />
+      <button class="modal-confirm" id="modalConfirm" type="button"></button>
+    </div>
   </div>
 
 <script>
@@ -358,8 +410,11 @@ const DATA = {
       featured: "Рекомендуемый",
       bookNow: "Забронировать",
       swipeHint: "Свайпайте, чтобы посмотреть пакеты",
-      bookingTemplate: "Hello! I want to book the {name} session.",
-      redirectToast: "Автоматический переход в WhatsApp"
+      bookingTemplate: "Здравствуйте, меня зовут {client}, я хочу записаться на фотосессию. Я выбрала кейс: {name}, можем обсудить условия?",
+      modalTitle: "Бронирование через WhatsApp",
+      modalSubtitle: "Введите ваше имя",
+      namePlaceholder: "Ваше имя",
+      confirmBooking: "Продолжить"
     },
     pkgs: [
       {
@@ -397,8 +452,11 @@ const DATA = {
       featured: "Featured",
       bookNow: "Book Now",
       swipeHint: "Swipe to explore packages",
-      bookingTemplate: "Hello! I want to book the {name} session.",
-      redirectToast: "Automatic redirect to WhatsApp"
+      bookingTemplate: "Hello, my name is {client}, I want to book a photo session. I chose the case: {name}, can we discuss the details?",
+      modalTitle: "Booking via WhatsApp",
+      modalSubtitle: "Please enter your name",
+      namePlaceholder: "Your name",
+      confirmBooking: "Continue"
     },
     pkgs: [
       {
@@ -436,8 +494,11 @@ const DATA = {
       featured: "Consigliato",
       bookNow: "Prenota Ora",
       swipeHint: "Scorri per vedere i pacchetti",
-      bookingTemplate: "Hello! I want to book the {name} session.",
-      redirectToast: "Reindirizzamento automatico su WhatsApp"
+      bookingTemplate: "Ciao, mi chiamo {client}, voglio prenotare un servizio fotografico. Ho scelto il case: {name}, possiamo discutere i dettagli?",
+      modalTitle: "Prenotazione via WhatsApp",
+      modalSubtitle: "Inserisci il tuo nome",
+      namePlaceholder: "Il tuo nome",
+      confirmBooking: "Continua"
     },
     pkgs: [
       {
@@ -475,8 +536,8 @@ const LANGS = ["en", "ru", "it"];
 const LANG_LABELS = { en: "EN", ru: "RU", it: "IT" };
 let currentLang = detectLanguage();
 let currentPackage = 0;
-let toastTimer = null;
 const WHATSAPP_NUMBER = "393446733500";
+let pendingPackage = null;
 
 function detectLanguage() {
   const nav = (navigator.language || "").toLowerCase();
@@ -534,10 +595,8 @@ function buildCards() {
   track.querySelectorAll(".book-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
       const pkg = langData.pkgs[Number(btn.dataset.idx)];
-      const text = langData.ui.bookingTemplate.replace("{name}", pkg.name);
-      const message = `${text} — ${langData.ui.redirectToast}`;
-      showToast(langData.ui.redirectToast);
-      window.location.href = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
+      pendingPackage = pkg;
+      openBookingModal();
     });
   });
 }
@@ -579,15 +638,34 @@ function escapeHtml(value) {
   return String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-function showToast(message) {
-  const toast = document.getElementById("toast");
+function openBookingModal() {
   const layer = document.getElementById("toastLayer");
-  toast.textContent = message;
+  const ui = DATA[currentLang].ui;
+  const nameInput = document.getElementById("nameInput");
+  document.getElementById("modalTitle").textContent = ui.modalTitle;
+  document.getElementById("modalSubtitle").textContent = ui.modalSubtitle;
+  document.getElementById("modalConfirm").textContent = ui.confirmBooking;
+  nameInput.placeholder = ui.namePlaceholder;
+  nameInput.value = "";
   layer.classList.add("show");
-  if (toastTimer) clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => {
-    layer.classList.remove("show");
-  }, 1400);
+  nameInput.focus();
+}
+
+function closeBookingModal() {
+  document.getElementById("toastLayer").classList.remove("show");
+}
+
+function confirmBooking() {
+  if (!pendingPackage) return;
+  const nameInput = document.getElementById("nameInput");
+  const clientName = nameInput.value.trim();
+  if (!clientName) {
+    nameInput.focus();
+    return;
+  }
+  const template = DATA[currentLang].ui.bookingTemplate;
+  const text = template.replace("{client}", clientName).replace("{name}", pendingPackage.name);
+  window.location.href = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(text)}`;
 }
 
 // Touch swipe logic for package carousel.
@@ -636,6 +714,14 @@ function setupSwipe() {
 
 setupSwipe();
 render();
+
+document.getElementById("modalConfirm").addEventListener("click", confirmBooking);
+document.getElementById("nameInput").addEventListener("keydown", (event) => {
+  if (event.key === "Enter") confirmBooking();
+});
+document.getElementById("toastLayer").addEventListener("click", (event) => {
+  if (event.target.id === "toastLayer") closeBookingModal();
+});
 </script>
 </body>
 </html>
